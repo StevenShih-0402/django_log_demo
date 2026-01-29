@@ -37,10 +37,12 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'file',
 ]
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'project_log_demo.middleware.TraceIDMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -115,3 +117,107 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
 
 STATIC_URL = 'static/'
+
+# LOGGING Configuration
+import sys
+import os
+from datetime import datetime
+from colorlog import ColoredFormatter
+
+# 建立 logs 目錄（依日期分資料夾）
+today_str = datetime.now().strftime("%Y-%m-%d")
+LOG_BASE_DIR = BASE_DIR / 'logs' / today_str
+LOG_BASE_DIR.mkdir(parents=True, exist_ok=True)
+
+# 設定 logs 訊息格式
+LOG_FORMAT = "%(log_color)s%(asctime)s | %(levelname)s | %(name)s | trace_id=%(trace_id)s | %(message)s"
+DATE_FORMAT = "%Y-%m-%d %H:%M:%S"
+
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'filters': {
+        'trace_id': {
+            '()': 'project_log_demo.trace_id.TraceIDFilter',
+        },
+    },
+    'formatters': {
+        'standard': {
+            'format': "%(asctime)s | %(levelname)s | %(name)s | trace_id=%(trace_id)s | %(message)s",
+            'datefmt': DATE_FORMAT
+        },
+        'colored': {
+            '()': ColoredFormatter,
+            'format': LOG_FORMAT,
+            'datefmt': DATE_FORMAT,
+            'log_colors': {
+                'DEBUG':    'blue',
+                'INFO':     'black,bg_green',
+                'WARNING':  'black,bg_yellow',
+                'ERROR':    'white,bg_red',
+                'CRITICAL': 'white,bg_purple',
+            },
+        },
+    },
+    'handlers': {
+        'console': {
+            'level': 'DEBUG',
+            'class': 'logging.StreamHandler',
+            'formatter': 'colored',
+            'filters': ['trace_id'],
+            'stream': sys.stdout,
+        },
+        'system_file': {
+            'class': 'logging.handlers.TimedRotatingFileHandler',
+            'filename': LOG_BASE_DIR / 'system.log',
+            'when': 'midnight',
+            'backupCount': 30,
+            'encoding': 'utf-8',
+            'formatter': 'standard',
+            'filters': ['trace_id'],
+        },
+        'audit_file': {
+            'class': 'logging.handlers.TimedRotatingFileHandler',
+            'filename': LOG_BASE_DIR / 'audit.log',
+            'when': 'midnight',
+            'backupCount': 30,
+            'encoding': 'utf-8',
+            'formatter': 'standard',
+            'filters': ['trace_id'],
+        },
+        'debug_file': {
+            'class': 'logging.handlers.TimedRotatingFileHandler',
+            'filename': LOG_BASE_DIR / 'debug.log',
+            'when': 'midnight',
+            'backupCount': 30,
+            'encoding': 'utf-8',
+            'formatter': 'standard',
+            'filters': ['trace_id'],
+            'level': 'DEBUG',
+        },
+    },
+    'loggers': {
+        'django': {
+            'handlers': ['console', 'debug_file'],
+            'level': 'DEBUG',
+            'propagate': True,
+        },
+        'app.system': {
+            'handlers': ['console', 'system_file', 'debug_file'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+        'audit': {
+            'handlers': ['console', 'audit_file'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+    },
+    'root': {
+        'handlers': ['console', 'debug_file'],
+        'level': 'INFO',
+    },
+}
+
+MEDIA_URL = '/media/'
+MEDIA_ROOT = BASE_DIR / 'media'

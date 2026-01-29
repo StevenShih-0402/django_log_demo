@@ -11,3 +11,9 @@ src/db.sqlite3
 
 # Virtual environments
 .venv
+
+# media
+src/media
+
+# logs
+src/logs
